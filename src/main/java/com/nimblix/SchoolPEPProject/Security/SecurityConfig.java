@@ -48,7 +48,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/auth/**",
                                 "/school/**",
-                                "/teacher/**"
+                                "/teacher/**",
+                                "/api/assignments/**"
                         ).permitAll()
                         .anyRequest().authenticated()
                 )

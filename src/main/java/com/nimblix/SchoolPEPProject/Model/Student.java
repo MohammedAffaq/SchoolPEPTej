@@ -1,9 +1,6 @@
 package com.nimblix.SchoolPEPProject.Model;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.DiscriminatorValue;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
@@ -33,6 +30,16 @@ public class Student extends User {
 
     @Column(name = "registration_no")
     private Long registrationNo;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(name = "section_id")
+    private Long sectionId;
+
+    @Column(name = "email")
+    private String email;
 
 
 
