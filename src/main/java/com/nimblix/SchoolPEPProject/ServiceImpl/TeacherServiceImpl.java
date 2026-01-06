@@ -15,6 +15,7 @@ import com.nimblix.SchoolPEPProject.Request.TeacherRegistrationRequest;
 import com.nimblix.SchoolPEPProject.Response.TeacherDetailsResponse;
 import com.nimblix.SchoolPEPProject.Service.TeacherService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
+@Slf4j
 public class TeacherServiceImpl implements TeacherService {
 
     private final TeacherRepository teacherRepository;
@@ -56,6 +58,7 @@ public class TeacherServiceImpl implements TeacherService {
 
         Role teacherRole = roleRepository.findByRoleName(SchoolConstants.TEACHER_ROLE);
 
+        log.info(" Teacher Role is "+ teacherRole);
         // ✅ Create ONLY Teacher
         Teacher teacher = new Teacher();
         teacher.setPrefix(request.getPrefix());

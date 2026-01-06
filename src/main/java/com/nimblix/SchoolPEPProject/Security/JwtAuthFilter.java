@@ -31,9 +31,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
+        String path = request.getServletPath();
+
+        // ✅ SKIP Swagger & public endpoints
+        if (path.startsWith("/swagger-ui")
+                || path.startsWith("/v3/api-docs")
+                || path.startsWith("/auth")) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String authHeader = request.getHeader("Authorization");
 
-        // 🔹 NO TOKEN → SKIP AUTH
+        // 🔹 NO TOKEN → CONTINUE (do NOT block)
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -49,7 +59,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 🔹 AUTH ALREADY SET
         if (username != null &&
                 SecurityContextHolder.getContext().getAuthentication() == null) {
 
@@ -57,7 +66,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             try {
                 userDetails = userDetailsService.loadUserByUsername(username);
             } catch (Exception ex) {
-                // 🚨 User not found → INVALID TOKEN
                 filterChain.doFilter(request, response);
                 return;
             }
