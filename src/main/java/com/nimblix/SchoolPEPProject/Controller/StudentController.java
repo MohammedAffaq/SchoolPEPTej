@@ -1,5 +1,13 @@
 package com.nimblix.SchoolPEPProject.Controller;
 
+import com.nimblix.SchoolPEPProject.Service.AcademicPerformanceService;
+import com.nimblix.SchoolPEPProject.Service.AttendancePerformanceService;
+import com.nimblix.SchoolPEPProject.dto.AcademicPerformanceResponse;
+import com.nimblix.SchoolPEPProject.dto.AttendancePerformanceResponse;
+
+import com.nimblix.SchoolPEPProject.dto.*;
+import java.util.*;
+
 import com.nimblix.SchoolPEPProject.Constants.SchoolConstants;
 import com.nimblix.SchoolPEPProject.Request.StudentRegistrationRequest;
 import com.nimblix.SchoolPEPProject.Response.StudentDetailsResponse;
@@ -17,8 +25,18 @@ import java.util.Map;
 @RequiredArgsConstructor
 @RequestMapping("/student")
 public class StudentController {
+    @Autowired
+    private AcademicPerformanceService academicPerformanceService;
+
+    @Autowired
+    private AttendancePerformanceService attendancePerformanceService;
+
 
     private final StudentService studentService;
+
+    private final com.nimblix.SchoolPEPProject.service.AcademicPerformanceService academicPerformanceService;
+    private final com.nimblix.SchoolPEPProject.service.AttendancePerformanceService attendancePerformanceService;
+
 
 
     /*
@@ -63,6 +81,19 @@ public class StudentController {
     }
 
 
+    @GetMapping("/list")
+    public ResponseEntity<?> getStudentList(
+            @RequestParam Long schoolId,
+            @RequestParam Long classId,
+            @RequestParam String section
+    ){
+        List<StudentDetailsResponse> students=studentService.getStudentsBySchoolClassAndSection(schoolId, classId, section);
+        Map<String, Object> response = new HashMap<>();
+        response.put(SchoolConstants.STATUS, SchoolConstants.STATUS_SUCCESS);
+        response.put("data", students);
+
+        return ResponseEntity.ok(response);
+    }
 
 
     @PostMapping("/update")
@@ -83,7 +114,17 @@ public class StudentController {
                 response.put(SchoolConstants.MESSAGE, e.getMessage());
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
+        @GetMapping("/attendance-performance")
+        public ResponseEntity<AttendancePerformanceResponse> getAttendancePerformance(
+            @RequestParam Long studentId,
+            @RequestParam String week) {
+
+            return ResponseEntity.ok(
+                attendancePerformanceService.getAttendancePerformance(studentId, week)
+            );
         }
+ 
+    }
 
 
 
@@ -144,6 +185,23 @@ public class StudentController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
         }
+    @GetMapping("/students/{studentId}/academic-score")
+    public AcademicPerformanceResponse getAcademicScore(
+        @PathVariable Long studentId,
+        @RequestParam int year) {
+
+        return academicPerformanceService
+            .getAcademicPerformance(studentId, year);
+        @GetMapping("/students/{studentId}/attendance-performance")
+        public AttendancePerformanceResponse getAttendancePerformance(
+            @PathVariable Long studentId,
+            @RequestParam String week) {
+
+            return attendancePerformanceService
+                .getAttendancePerformance(studentId, week);
+        }
+
     }
+}
 
 

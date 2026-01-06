@@ -1,8 +1,10 @@
 package com.nimblix.SchoolPEPProject.Service;
 
+import com.nimblix.SchoolPEPProject.Request.AssignmentShareRequest;
 import com.nimblix.SchoolPEPProject.Request.ClassroomRequest;
 import com.nimblix.SchoolPEPProject.Request.TeacherRegistrationRequest;
 import com.nimblix.SchoolPEPProject.Response.TeacherDetailsResponse;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Map;
@@ -19,4 +21,10 @@ public interface TeacherService {
     Map<String, String> updateTeacherDetails(TeacherRegistrationRequest request, Long teacherId);
 
     Map<String, String> deleteTeacherDetails(Long teacherId, Long schoolId);
+
+    Map<String, String> shareAssignment(Long assignmentId, AssignmentShareRequest request);
+
+    ResponseEntity<Resource> downloadAssignmentAttachment(Long assignmentId, Long attachmentId, Long userId);
+
+
 }

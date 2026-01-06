@@ -2,24 +2,25 @@ package com.nimblix.SchoolPEPProject.ServiceImpl;
 
 import com.nimblix.SchoolPEPProject.Constants.SchoolConstants;
 import com.nimblix.SchoolPEPProject.Exception.UserNotFoundException;
-import com.nimblix.SchoolPEPProject.Model.Classroom;
-import com.nimblix.SchoolPEPProject.Model.Role;
-import com.nimblix.SchoolPEPProject.Model.Teacher;
-import com.nimblix.SchoolPEPProject.Model.User;
-import com.nimblix.SchoolPEPProject.Repository.ClassroomRepository;
-import com.nimblix.SchoolPEPProject.Repository.RoleRepository;
-import com.nimblix.SchoolPEPProject.Repository.TeacherRepository;
-import com.nimblix.SchoolPEPProject.Repository.UserRepository;
+import com.nimblix.SchoolPEPProject.Model.*;
+
+import com.nimblix.SchoolPEPProject.Repository.*;
+import com.nimblix.SchoolPEPProject.Request.AssignmentShareRequest;
 import com.nimblix.SchoolPEPProject.Request.ClassroomRequest;
 import com.nimblix.SchoolPEPProject.Request.TeacherRegistrationRequest;
 import com.nimblix.SchoolPEPProject.Response.TeacherDetailsResponse;
 import com.nimblix.SchoolPEPProject.Service.TeacherService;
+import com.nimblix.SchoolPEPProject.Repository.AttachmentsRepository;
+
+import org.springframework.core.io.Resource;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.io.File;
+import java.net.MalformedURLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,13 @@ public class TeacherServiceImpl implements TeacherService {
     private final RoleRepository roleRepository;
     private final ClassroomRepository classroomRepository;
     private final PasswordEncoder passwordEncoder;
+
+    //--------------------Assignment Sharing--------------------//
+    private final AssignmentsRepository assignmentRepository;
+    private final StudentRepository studentRepository;
+
+
+
     Map<String, String> response = new HashMap<>();
 
     @Override
@@ -186,5 +194,121 @@ public class TeacherServiceImpl implements TeacherService {
         return response;
     }
 
+    //-------------Assignment Share Service Implementation ----------------
+    @Override
+    public Map<String, String> shareAssignment(
+            Long assignmentId,
+            AssignmentShareRequest request) {
+
+        Map<String, String> response = new HashMap<>();
+
+        if (assignmentId == null || assignmentId <= 0) {
+            response.put(SchoolConstants.STATUS, SchoolConstants.STATUS_ERORR);
+            response.put(SchoolConstants.MESSAGE, "Assignment ID is required");
+            return response;
+        }
+
+        if (request.getClassId() == null) {
+            response.put(SchoolConstants.STATUS, SchoolConstants.STATUS_ERORR);
+            response.put(SchoolConstants.MESSAGE, "classId is required");
+            return response;
+        }
+
+        if (request.getSection() == null || request.getSection().isBlank()) {
+            response.put(SchoolConstants.STATUS, SchoolConstants.STATUS_ERORR);
+            response.put(SchoolConstants.MESSAGE, "section is required");
+            return response;
+        }
+
+        Optional<Assignments> assignmentOptional =
+                assignmentRepository.findById(assignmentId);
+
+        if (assignmentOptional.isEmpty()) {
+            response.put(SchoolConstants.STATUS, SchoolConstants.STATUS_ERORR);
+            response.put(SchoolConstants.MESSAGE, "Assignment not found");
+            return response;
+        }
+
+        List<Student> students =
+                studentRepository.findByClassIdAndSection(
+                        request.getClassId(),
+                        request.getSection()
+                );
+
+        if (students.isEmpty()) {
+            response.put(SchoolConstants.STATUS, SchoolConstants.STATUS_ERORR);
+            response.put(SchoolConstants.MESSAGE,
+                    "No students found for given class and section");
+            return response;
+        }
+
+        Assignments assignment = assignmentOptional.get();
+        assignment.setShared(true);
+        assignmentRepository.save(assignment);
+
+        response.put(SchoolConstants.STATUS, SchoolConstants.STATUS_SUCCESS);
+        response.put(SchoolConstants.MESSAGE,
+                "Assignment shared successfully with students");
+
+        return response;
+    }
+
+    //-------------Download Assignment Attachment Service Implementation ----------------
+    private final TaskRepository taskRepository;
+    private final AttachmentsRepository attachmentsRepository;
+
+    @Override
+    public ResponseEntity<org.springframework.core.io.Resource>
+    downloadAssignmentAttachment(
+            Long assignmentId,
+            Long attachmentId,
+            Long userId
+    ) {
+
+        // assignmentId is ACTUALLY taskId internally
+        Task task = taskRepository.findById(assignmentId)
+                .orElseThrow(() -> new RuntimeException("Task not found"));
+
+        boolean isTeacher = task.getUserId() != null && task.getUserId().equals(userId);
+
+        if (!isTeacher) {
+            throw new RuntimeException("Access denied");
+        }
+
+        Attachments attachment = attachmentsRepository
+                .findByIdAndTask_Id(attachmentId, assignmentId)
+                .orElseThrow(() -> new RuntimeException("Attachment not found"));
+
+        File file = new File(attachment.getFileUrl());
+        if (!file.exists()) {
+            throw new RuntimeException("File not found");
+        }
+
+        try {
+            org.springframework.core.io.Resource resource =
+                    new org.springframework.core.io.UrlResource(file.toURI());
+
+            return ResponseEntity.ok()
+                    .contentType(resolveMediaType(attachment.getFileName()))
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            "attachment; filename=\"" + attachment.getFileName() + "\""
+                    )
+                    .body(resource);
+
+        } catch (java.net.MalformedURLException e) {
+            throw new RuntimeException("Invalid file path", e);
+        }
+    }
+
+
+    private MediaType resolveMediaType(String fileName) {
+        if (fileName.endsWith(".pdf")) return MediaType.APPLICATION_PDF;
+        if (fileName.endsWith(".png")) return MediaType.IMAGE_PNG;
+        if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg"))
+            return MediaType.IMAGE_JPEG;
+
+        return MediaType.APPLICATION_OCTET_STREAM;
+    }
 
 }

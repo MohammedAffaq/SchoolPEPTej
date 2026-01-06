@@ -1,10 +1,12 @@
 package com.nimblix.SchoolPEPProject.Controller;
 
+import com.nimblix.SchoolPEPProject.Request.AssignmentShareRequest;
 import com.nimblix.SchoolPEPProject.Request.ClassroomRequest;
 import com.nimblix.SchoolPEPProject.Request.TeacherRegistrationRequest;
 import com.nimblix.SchoolPEPProject.Response.TeacherDetailsResponse;
 import com.nimblix.SchoolPEPProject.Service.TeacherService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -45,10 +47,9 @@ public class TeacherController {
     }
 
 
-
     @DeleteMapping("/delete")
-    public  Map<String,String> deleteTeacherRecord(@RequestParam Long teacherId, @RequestParam Long schoolId){
-        return  teacherService.deleteTeacherDetails(teacherId,schoolId);
+    public Map<String, String> deleteTeacherRecord(@RequestParam Long teacherId, @RequestParam Long schoolId) {
+        return teacherService.deleteTeacherDetails(teacherId, schoolId);
     }
 
 
@@ -57,5 +58,31 @@ public class TeacherController {
         return teacherService.createClassroom(request);
     }
 
+
+    //-------------Assignment Share Controller Methods ----------------
+    @PostMapping("/assignments/{assignmentId}/share")
+    public ResponseEntity<Map<String, String>> shareAssignment(
+            @PathVariable Long assignmentId,
+            @RequestBody AssignmentShareRequest request) {
+
+        Map<String, String> response =
+                teacherService.shareAssignment(assignmentId, request);
+
+        return ResponseEntity.ok(response);
+    }
+
+    //-------------Download Assignment Attachment Controller Methods ----------------
+    @GetMapping("/api/assignments/{assignmentId}/attachments/{attachmentId}/download")
+    public ResponseEntity<org.springframework.core.io.Resource> downloadAttachment(
+            @PathVariable Long assignmentId,
+            @PathVariable Long attachmentId,
+            @RequestParam Long userId
+    ) {
+        return teacherService.downloadAssignmentAttachment(
+                assignmentId,
+                attachmentId,
+                userId
+        );
+    }
 
 }
