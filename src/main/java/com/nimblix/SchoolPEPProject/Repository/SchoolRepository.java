@@ -1,29 +1,18 @@
 package com.nimblix.SchoolPEPProject.Repository;
 
 import com.nimblix.SchoolPEPProject.Model.School;
-import com.nimblix.SchoolPEPProject.Model.Student;
-import com.nimblix.SchoolPEPProject.Response.SchoolListResponse;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
 
-import java.util.List;
 import java.util.Optional;
 
-public interface SchoolRepository extends JpaRepository<School,Long> {
+public interface SchoolRepository extends JpaRepository<School, Long> {
 
+    // Check if schoolId already exists
+    boolean existsBySchoolId(Long schoolId);
+
+    // Check if email already exists
     boolean existsBySchoolEmail(String schoolEmail);
 
-    @Query("""
-    SELECT new com.nimblix.SchoolPEPProject.Response.SchoolListResponse(
-        s.id,
-        s.schoolName
-    )
-    FROM School s
-""")
-    List<SchoolListResponse> findAllSchoolsForDropdown();
-
-
-    Optional<School> findBySchoolEmail(String schoolEmail);
-
-
+    // Fetch school by schoolId
+    Optional<School> findBySchoolId(Long schoolId);
 }

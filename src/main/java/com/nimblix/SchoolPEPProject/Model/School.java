@@ -5,16 +5,19 @@ import com.nimblix.SchoolPEPProject.Util.SchoolUtil;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name = "school")
 @Getter
 @Setter
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class School {
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "school_id")
     private Long schoolId;
 
@@ -27,7 +30,7 @@ public class School {
     @Column(name = "school_phone")
     private String schoolPhone;
 
-    @Column(name = "school_email")
+    @Column(name = "school_email", nullable = false, unique = true)
     private String schoolEmail;
 
     @Column(name = "latitude")
@@ -39,11 +42,11 @@ public class School {
     @Column(name = "location_type")
     private String locationType;
 
-    @Column(name = "created_time")
-    private String createdTime;
+    @Column(name = "created_time", updatable = false)
+    private LocalDateTime createdTime;
 
     @Column(name = "updated_time")
-    private String updatedTime;
+    private LocalDateTime updatedTime;
 
     @Column(name = "email_verified")
     private Boolean emailVerified;
@@ -58,28 +61,31 @@ public class School {
     private String subscriptionStatus;
 
     @Column(name = "trial_start_date")
-    private String trialStartDate;
+    private LocalDateTime trialStartDate;
 
     @Column(name = "trial_end_date")
-    private String trialEndDate;
+    private LocalDateTime trialEndDate;
 
     @Column(name = "is_active")
     private Boolean isActive;
 
+    // ---------------- LIFECYCLE METHODS ----------------
+
     @PrePersist
     protected void onCreate() {
-        createdTime = SchoolUtil.changeCurrentTimeToLocalDateFromGmtToISTInString();
-        updatedTime = createdTime;
+        this.createdTime = LocalDateTime.now();
+        this.updatedTime = this.createdTime;
 
-        subscriptionStatus = SchoolConstants.SUBSCRIPTION_TRAIL;
-        trialStartDate = SchoolUtil.nowIST();
-        trialEndDate = SchoolUtil.plusDaysIST(30);
-        isActive = true;
+        this.emailVerified = false;
+        this.subscriptionStatus = SchoolConstants.SUBSCRIPTION_TRAIL;
+        this.trialStartDate = LocalDateTime.now();
+        this.trialEndDate = LocalDateTime.now().plusDays(30);
+        this.isActive = true;
+        this.status = SchoolConstants.STATUS_ACTIVE;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedTime = SchoolUtil.changeCurrentTimeToLocalDateFromGmtToISTInString();
+        this.updatedTime = LocalDateTime.now();
     }
 }
-

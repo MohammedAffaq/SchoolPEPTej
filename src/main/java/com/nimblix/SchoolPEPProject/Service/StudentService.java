@@ -22,4 +22,3 @@ public interface StudentService {
 
     List<StudentDetailsResponse> getStudentsBySchoolClassAndSection(Long schoolId, Long classId, String section);
 }
-]\

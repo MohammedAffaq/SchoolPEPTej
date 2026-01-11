@@ -1,12 +1,9 @@
 package com.nimblix.SchoolPEPProject.ServiceImpl;
 import com.nimblix.SchoolPEPProject.Constants.SchoolConstants;
-import com.nimblix.SchoolPEPProject.Exception.UserNotFoundException;
 import com.nimblix.SchoolPEPProject.Model.Role;
 import com.nimblix.SchoolPEPProject.Model.Student;
-import com.nimblix.SchoolPEPProject.Model.User;
 import com.nimblix.SchoolPEPProject.Repository.RoleRepository;
 import com.nimblix.SchoolPEPProject.Repository.StudentRepository;
-import com.nimblix.SchoolPEPProject.Repository.UserRepository;
 import com.nimblix.SchoolPEPProject.Request.StudentRegistrationRequest;
 import com.nimblix.SchoolPEPProject.Response.StudentDetailsResponse;
 import com.nimblix.SchoolPEPProject.Service.StudentService;

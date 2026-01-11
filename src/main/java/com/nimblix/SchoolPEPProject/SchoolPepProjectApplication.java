@@ -53,5 +53,4 @@ public class SchoolPepProjectApplication {
          System.out.println("result"+result);
          SpringApplication.run(SchoolPepProjectApplication.class, args);
 	}
-
 }

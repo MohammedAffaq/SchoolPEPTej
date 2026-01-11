@@ -1,303 +1,94 @@
 package com.nimblix.SchoolPEPProject.ServiceImpl;
 
 import com.nimblix.SchoolPEPProject.Constants.SchoolConstants;
-import com.nimblix.SchoolPEPProject.Helper.MailHelper;
 import com.nimblix.SchoolPEPProject.Model.School;
-import com.nimblix.SchoolPEPProject.Model.SchoolEmailOtp;
-import com.nimblix.SchoolPEPProject.Model.SchoolSubscription;
-import com.nimblix.SchoolPEPProject.Model.User;
-import com.nimblix.SchoolPEPProject.Repository.SchoolEmailOtpRepository;
 import com.nimblix.SchoolPEPProject.Repository.SchoolRepository;
-import com.nimblix.SchoolPEPProject.Repository.SchoolSubscriptionRepository;
-import com.nimblix.SchoolPEPProject.Repository.UserRepository;
 import com.nimblix.SchoolPEPProject.Request.SchoolRegistrationRequest;
-import com.nimblix.SchoolPEPProject.Request.SubscriptionRequest;
-import com.nimblix.SchoolPEPProject.Response.SchoolListResponse;
 import com.nimblix.SchoolPEPProject.Service.SchoolService;
-import com.nimblix.SchoolPEPProject.Util.SchoolUtil;
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Optional;
+import java.util.regex.Pattern;
 
-@RequiredArgsConstructor
 @Service
+@RequiredArgsConstructor
 public class SchoolServiceImpl implements SchoolService {
 
     private final SchoolRepository schoolRepository;
-    private final MailHelper mailHelper;
-    private final UserRepository userRepository;
-    private  final SchoolEmailOtpRepository schoolEmailOtpRepository;
-    private final SchoolSubscriptionRepository schoolSubscriptionRepository;
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+
     @Override
-    public School registerSchool(SchoolRegistrationRequest request) {
+    public void registerSchool(SchoolRegistrationRequest request) {
 
-        if (request.getSchoolId() == null) {
-            throw new IllegalArgumentException("School ID is mandatory");
+        // 1. Mandatory field validation
+        if (request == null ||
+                request.getSchoolName() == null ||
+                request.getSchoolId() == null ||
+                request.getEmail() == null ||
+                request.getPassword() == null ||
+                request.getConfirmPassword() == null ||
+                request.getAddress() == null ||
+                request.getMobileNumber() == null ||
+                request.getCity() == null ||
+                request.getState() == null ||
+                request.getPincode() == null) {
+
+            throw new IllegalArgumentException("All fields are mandatory");
         }
 
-        if (schoolRepository.existsById(request.getSchoolId())) {
-            throw new RuntimeException("School ID already exists");
+        // 2. Unique validations
+        if (schoolRepository.existsBySchoolId(Long.valueOf(request.getSchoolId()))) {
+            throw new RuntimeException("School already exists with this School ID");
         }
 
-        if (!request.getSchoolAddress().matches(".*\\b\\d{6}\\b.*")) {
+        if (schoolRepository.existsBySchoolEmail(request.getEmail())) {
+            throw new RuntimeException("Email already registered");
+        }
+
+        // 3. Email format validation
+        String emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$";
+        if (!Pattern.matches(emailRegex, request.getEmail())) {
+            throw new IllegalArgumentException("Invalid email format");
+        }
+
+        // 4. Mobile number validation
+        if (!request.getMobileNumber().matches("\\d{10}")) {
+            throw new IllegalArgumentException("Mobile number must be exactly 10 digits");
+        }
+
+        // 5. Password match validation
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new IllegalArgumentException(
-                    "School address must contain a valid 6-digit pincode"
+                    "Password and Confirm Password do not match"
             );
         }
 
-        if (schoolRepository.existsBySchoolEmail(request.getSchoolEmail())) {
-            throw new RuntimeException("School already registered with this email");
+        // 6. Password strength validation
+        String passwordRegex =
+                "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&]).{8,}$";
+
+        if (!Pattern.matches(passwordRegex, request.getPassword())) {
+            throw new IllegalArgumentException(
+                    "Password must contain uppercase, lowercase, number, special character and minimum 8 characters"
+            );
         }
 
-        String locationType = "MANUAL";
-        if (request.getLatitude() != null && request.getLongitude() != null) {
-            locationType = "GPS";
-        }
+        // 7. Encrypt password
+        String encryptedPassword = passwordEncoder.encode(request.getPassword());
 
+        // 8. Build entity
         School school = School.builder()
-                .schoolId(request.getSchoolId())
+                .schoolId(Long.valueOf(request.getSchoolId()))
                 .schoolName(request.getSchoolName())
-                .schoolAddress(request.getSchoolAddress())
-                .schoolPhone(request.getSchoolPhone())
-                .password(request.getPassword()) // hash later
-                .schoolEmail(request.getSchoolEmail())
-                .latitude(request.getLatitude())
-                .longitude(request.getLongitude())
-                .locationType(locationType)
-                .emailVerified(Boolean.FALSE)
-                .status(SchoolConstants.ACTIVE)
+                .schoolEmail(request.getEmail())
+                .schoolAddress(request.getAddress())
+                .password(encryptedPassword)
+                .status(SchoolConstants.STATUS_ACTIVE)
+                .isActive(true)
                 .build();
 
-        schoolRepository.save(school);
-
-        // 🔹 Generate OTP
-        Integer otp = MailHelper.getSixDigitRandomNumber();
-
-        SchoolEmailOtp emailOtp = new SchoolEmailOtp();
-        emailOtp.setEmail(request.getSchoolEmail());
-        emailOtp.setOtp(String.valueOf(otp));
-        emailOtp.setVerified(Boolean.FALSE);
-
-        // Set expiry time as String in IST format
-        emailOtp.setExpiryTime(SchoolUtil.getExpiryTimeInISTString(5));
-
-
-        schoolEmailOtpRepository.save(emailOtp);
-
-        mailHelper.sendOtpMail(
-                request.getSchoolEmail(),
-                request.getSchoolName(),
-                String.valueOf(otp),
-                "School Registration OTP Verification" // ✅
-        );
-
-
-        return school;
-    }
-
-    @Override
-    public List<SchoolListResponse> getAllSchools() {
-        return schoolRepository.findAllSchoolsForDropdown();
-    }
-
-    @Override
-    public void verifySchoolOtp(String email, String otp) {
-
-        SchoolEmailOtp emailOtp = schoolEmailOtpRepository
-                .findTopByEmailOrderByIdDesc(email)
-                .orElseThrow(() -> new RuntimeException("OTP not found"));
-
-        if (Boolean.TRUE.equals(emailOtp.getVerified())) {
-            throw new RuntimeException("OTP already verified");
-        }
-
-        if (!emailOtp.getOtp().equals(otp)) {
-            throw new RuntimeException("Invalid OTP");
-        }
-
-        DateTimeFormatter formatter =
-                DateTimeFormatter.ofPattern("dd-MM-yyyy HH:mm");
-
-        LocalDateTime expiryTime =
-                LocalDateTime.parse(emailOtp.getExpiryTime(), formatter);
-
-        LocalDateTime nowIST =
-                LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
-
-        if (nowIST.isAfter(expiryTime)) {
-            throw new RuntimeException("OTP expired");
-        }
-
-        emailOtp.setVerified(Boolean.TRUE);
-        schoolEmailOtpRepository.save(emailOtp);
-
-        School school = schoolRepository
-                .findBySchoolEmail(email)
-                .orElseThrow(() -> new RuntimeException("School not found"));
-
-        school.setEmailVerified(Boolean.TRUE);
+        // 9. Save to DB
         schoolRepository.save(school);
     }
-
-
-    @Override
-    public void validateSubscription(School school) {
-
-        DateTimeFormatter formatter =
-                DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-        LocalDateTime trialEnd =
-                LocalDateTime.parse(school.getTrialEndDate(), formatter);
-
-        LocalDateTime now =
-                LocalDateTime.now(ZoneId.of("Asia/Kolkata"));
-
-        if (now.isAfter(trialEnd)) {
-
-            if (!SchoolConstants.SUBSCRIPTION_EXPIRED
-                    .equals(school.getSubscriptionStatus())) {
-
-                school.setSubscriptionStatus(SchoolConstants.SUBSCRIPTION_EXPIRED);
-                school.setIsActive(false);
-                schoolRepository.save(school);
-            }
-
-            throw new RuntimeException(
-                    "Free trial expired. Please subscribe to continue."
-            );
-        }
-    }
-    @Override
-    public School getLoggedInSchool() {
-
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()) {
-            throw new RuntimeException("Unauthorized");
-        }
-
-        String email = authentication.getName();
-
-        User user = userRepository
-                .findByEmailIdIgnoreCase(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        if (user.getSchoolId() == null) {
-            throw new RuntimeException("User is not linked to any school");
-        }
-
-        return schoolRepository
-                .findById(user.getSchoolId())
-                .orElseThrow(() -> new RuntimeException("School not found"));
-    }
-
-
-    @Override
-    @Transactional
-    public void activatePaidSubscription(
-            School school,
-            SubscriptionRequest request) {
-
-        Optional<SchoolSubscription> activeSub =
-                schoolSubscriptionRepository
-                        .findTopBySchoolIdAndPaymentStatusOrderByIdDesc(
-                                school.getSchoolId(),
-                                SchoolConstants.ACTIVE
-                        );
-
-        if (activeSub.isPresent()) {
-            throw new RuntimeException("Active subscription already exists");
-        }
-
-        // 🔹 Validate payment (mock)
-        if (request.getAmount() == null || request.getAmount() <= 0) {
-            throw new RuntimeException("Invalid amount");
-        }
-
-        if (request.getPaymentRef() == null || request.getPaymentRef().isBlank()) {
-            throw new RuntimeException("Payment reference required");
-        }
-
-        // 🔹 Create new subscription
-        SchoolSubscription subscription =
-                SchoolSubscription.builder()
-                        .schoolId(school.getSchoolId())
-                        .planType(request.getPlanType())
-                        .amount(request.getAmount())
-                        .paymentRef(request.getPaymentRef())
-                        .paymentStatus(SchoolConstants.ACTIVE)
-                        .startDate(SchoolUtil.nowIST())
-                        .endDate(SchoolUtil.plusDaysIST(365))
-                        .build();
-
-        schoolSubscriptionRepository.save(subscription);
-
-        // 🔹 Update school status
-        school.setSubscriptionStatus(SchoolConstants.PAID);
-        school.setIsActive(true);
-        schoolRepository.save(school);
-    }
-
-    @Override
-    public void resendSchoolOtp(String email) {
-
-        // 🔹 Validate email
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("School email is required");
-        }
-
-        // 🔹 Check school exists
-        School school = schoolRepository
-                .findBySchoolEmail(email)
-                .orElseThrow(() ->
-                        new RuntimeException("School not found with this email")
-                );
-
-        // 🔹 Generate new OTP
-        Integer newOtp = MailHelper.getSixDigitRandomNumber();
-
-        // 🔹 Fetch existing OTP record (if any)
-        Optional<SchoolEmailOtp> existingOtpOpt =
-                schoolEmailOtpRepository.findByEmail(email);
-
-        SchoolEmailOtp otpEntity;
-
-        if (existingOtpOpt.isPresent()) {
-            otpEntity = existingOtpOpt.get();
-            otpEntity.setOtp(String.valueOf(newOtp));
-            otpEntity.setVerified(Boolean.FALSE);
-            otpEntity.setExpiryTime(
-                    SchoolUtil.getExpiryTimeInISTString(5)
-            );
-        } else {
-            otpEntity = new SchoolEmailOtp();
-            otpEntity.setEmail(email);
-            otpEntity.setOtp(String.valueOf(newOtp));
-            otpEntity.setVerified(Boolean.FALSE);
-            otpEntity.setExpiryTime(
-                    SchoolUtil.getExpiryTimeInISTString(5)
-            );
-        }
-
-        schoolEmailOtpRepository.save(otpEntity);
-
-        // 🔹 Send mail
-        mailHelper.sendOtpMail(
-                email,
-                school.getSchoolName(),
-                String.valueOf(newOtp),
-                "School OTP Resend Verification"
-        );
-    }
-
-
 }
